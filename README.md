@@ -138,7 +138,7 @@ pal.jed.
 Put your GAL16V8B DIRECTLY into your chip programmer (NOT using the adapter!) and
 instruct your EPROM programmer to write pal.jed to the GAL.
 
-![Picture of GAL16V8B in adapter in chip programmer](pal_in_adapter_in_programmer_small.jpg)	
+![Picture of GAL16V8B in adapter in chip programmer](gal_in_programmer_small.jpg)	
 
 Again with the minipro command line utility as example:
 ```
