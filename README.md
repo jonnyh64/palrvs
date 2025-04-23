@@ -34,6 +34,9 @@ https://github.com/psurply/ReGAL.
 In 2020, https://github.com/DuPAL-PAL-DUmper was published, providing
 support for more PALs (even registered ones).
 
+The "Retro Chip Tester Professional" also supports reading protected PALs - see
+https://8bit-museum.de/hardware-projekte/hardware-projekte-chip-tester-english/.
+
 Rodney used the "EPROM readout adapter" from http://techno-junk.org which basically
 "misuses" a chip programmer to apply all possible input combinations to the PAL via the
 EPROM address lines A0..A17. An analysis tool is then used to transform the "EPROM dump"
