@@ -82,7 +82,7 @@ The original schematic from Charles M. suggested 4k7 resistors. This value doesn
 for me (it does not give a stable reading with my minipro chip programmer) and neither
 does 2k2. Only after going down to 1k, it worked for me and so you also might need to experiment.
 
-## Install Python and SymPy
+## Install Python
 
 Go to www.python.org, download a recent Python version (anything >= 3.7 should do) and install it.
 
