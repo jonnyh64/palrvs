@@ -1,5 +1,5 @@
 #
-# Copyright 2024 Johann Hanne
+# Copyright 2024-2025 Johann Hanne
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy of
 # this software and associated documentation files (the "Software"), to deal in
@@ -20,15 +20,14 @@
 # SOFTWARE.
 #
 
-# Version 1.0.0 (2024-05-12)
+# Version 1.1.0 (2025-04-23)
 
 import argparse
 import pathlib
-import sympy
+import boolexprsimplifier
 
 parser = argparse.ArgumentParser(prog = 'pete',
-                    description = 'Transform PAL EPROM dump to equations',
-                    epilog = 'Needs sympy installed for simplified equations to be generated')
+                    description = 'Transform PAL EPROM dump to equations')
 parser.add_argument('-p', dest = 'pinnames', help = 'Comma separated pin names: pin1,pin2,pin3,...,pin9,pin11,pin12,pin13,...,pin19')
 parser.add_argument('-a', dest = 'andstr', default = '&' , help = 'string to use for logical and')
 parser.add_argument('-o', dest = 'orstr',  default = '#' , help = 'string to use for logical or')
@@ -189,56 +188,58 @@ def pretty_print_truthtable(f, resultstr, indent, conditionslist):
         else:
             f.write(line + ';\n')
 
-def pretty_print_sop(f, resultstr, sop):
-    if isinstance(sop, (sympy.logic.boolalg.BooleanTrue, sympy.logic.boolalg.BooleanFalse, sympy.Symbol, sympy.Not)):
-        products = [sop]
-    elif isinstance(sop, sympy.And):
-        # Only one product...
-        products = [sop]
-    elif isinstance(sop, sympy.Or):
-        products = sop.args
+# Generator which yields the bit numbers set
+# Example: for bitcount=5 and bits=0b01011, yielded values will be 0, 1, 3
+def get_set_bits(bitcount, bits):
+    bitnum = 0
+    bit = 1
+    while bitnum < bitcount:
+        if (bits & bit) != 0:
+            yield bitnum
+        bitnum += 1
+        bit <<= 1
+
+def pretty_print_sop(f, resultstr, pinnames, results):
+    if results is True:
+        f.write(resultstr + " = b'1'\n")
+    elif results is False:
+        f.write(resultstr + " = b'0'\n")
     else:
-        raise RuntimeError(f'Got neither product nor sum (but {type(sop)})')
+        result = results[0]
 
-    isfirstproduct = True
-    for i, p in enumerate(products):
-        if isinstance(p, sympy.logic.boolalg.BooleanFalse):
-            line = "'b'0"
-        elif isinstance(p, sympy.logic.boolalg.BooleanTrue):
-            line = "'b'1"
-        elif isinstance(p, sympy.Not):
-            line = notstr + str(p.args[0])
-        elif isinstance(p, sympy.Symbol):
-            line = str(p)
-        elif isinstance(p, sympy.And):
-            line = ""
-            isfirstsymbol = True
+        isfirstproduct = True
 
-            for sym in p.args:
+        # Sorting is mainly done here to have a reproducible output order,
+        # the output would also be correct without sorting
+        result = sorted(result, key=lambda r: tuple(get_set_bits(len(pinnames), r[1])))
 
-                if isinstance(sym, sympy.Not):
-                    s = notstr + str(sym.args[0])
-                else:
-                    s = str(sym)
+        for i, p in enumerate(result):
+            bits = p[0]
+            mask = p[1]
 
-                if isfirstsymbol:
-                    line = s
-                    isfirstsymbol = False
-                else:
-                    line += f' {andstr} ' + s
-        else:
-            raise RuntimeError(f'Did not get a product (but {type(p)})')
+            symbols = []
 
-        if i == len(products) - 1:
-            eol = ";"
-        else:
-            eol = ""
+            bit = 1
+            for bitnum, pinname in enumerate(pinnames):
+                if (mask & bit) != 0:
+                    if (bits & bit) != 0:
+                        symbols.append(pinname)
+                    else:
+                        symbols.append('!' + pinname)
+                bit <<= 1
 
-        if isfirstproduct:
-            f.write(resultstr + ' = ' + line + eol + '\n')
-            isfirstproduct = False
-        else:
-            f.write(f'  {orstr} ' + line + eol + '\n')
+            line = ' & '.join(symbols)
+
+            if i == len(result) - 1:
+                eol = ";"
+            else:
+                eol = ""
+
+            if isfirstproduct:
+                f.write(resultstr + ' = ' + line + eol + '\n')
+                isfirstproduct = False
+            else:
+                f.write(f'  {orstr} ' + line + eol + '\n')
 
 # Key: output pin bit position
 # Value: input pin bits this output pin depends on
@@ -469,13 +470,10 @@ for outputpinbitpos in range(0, 8):
         if len(dontcareconditionslist) != 0:
             pretty_print_truthtable(f_truthtable, f'{outputpinname}_DC', pin_name_maxlen + 3, dontcareconditionslist)
 
-        # Note: sympy wants the name for the least significant bit as last symbol, but
-        # our pin name array has the name for the least significant bit first
-        # => reverse it using [::1] slice syntax
-        negsopform = sympy.logic.boolalg.SOPform(sympy.symbols(depends_on_pinnames[::-1]), negminterms, dontcareterms)
-        pretty_print_sop(f_equations, f'{notstr}{outputpinname}', negsopform)
-        #possopform = sympy.logic.boolalg.SOPform(sympy.symbols(depends_on_pinnames[::-1]), posminterms, dontcareterms)
-        #pretty_print_sop(f_equations, f'{outputpinname}', possopform)
+        negresults = boolexprsimplifier.simplify_minterms(len(depends_on_pinnames), negminterms, dontcareterms, debug=False)
+        pretty_print_sop(f_equations, f'{notstr}{outputpinname}', depends_on_pinnames, negresults)
+        #posresults = boolexprsimplifier.simplify_minterms(len(depends_on_pinnames), posminterms, dontcareterms, debug=False)
+        #pretty_print_sop(f_equations, f'{outputpinname}', depends_on_pinnames, posresults)
 
     if oe_depends_on == 0:
         if seen_high_output[outputpinbitpos] or seen_low_output[outputpinbitpos]:
@@ -536,13 +534,10 @@ for outputpinbitpos in range(0, 8):
         pretty_print_truthtable(f_truthtable, f' {outputpinname+".oe"}', pin_name_maxlen + 4, posconditionslist)
         pretty_print_truthtable(f_truthtable, f'{notstr}{outputpinname+".oe"}', pin_name_maxlen + 4, negconditionslist)
 
-        # Note: sympy wants the name for the least significant bit as last symbol, but
-        # our pin name array has the name for the least significant bit first
-        # => reverse it using [::1] slice syntax
-        #negsopform = sympy.logic.boolalg.SOPform(sympy.symbols(oe_depends_on_pinnames[::-1]), negminterms)
-        #pretty_print_sop(f_equations, notstr + outputpinname + '.oe', negsopform)
-        possopform = sympy.logic.boolalg.SOPform(sympy.symbols(oe_depends_on_pinnames[::-1]), posminterms)
-        pretty_print_sop(f_equations, outputpinname + '.oe', possopform)
+        #negresults = boolexprsimplifier.simplify_minterms(len(oe_depends_on_pinnames), negminterms, [], debug=False)
+        #pretty_print_sop(f_equations, f'{notstr}{outputpinname}.oe', oe_depends_on_pinnames, negresults)
+        posresults = boolexprsimplifier.simplify_minterms(len(oe_depends_on_pinnames), posminterms, [], debug=False)
+        pretty_print_sop(f_equations, f'{outputpinname}.oe', oe_depends_on_pinnames, posresults)
 
 f_truthtable.close()
 f_equations.close()

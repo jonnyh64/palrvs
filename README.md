@@ -34,9 +34,6 @@ https://github.com/psurply/ReGAL.
 In 2020, https://github.com/DuPAL-PAL-DUmper was published, providing
 support for more PALs (even registered ones).
 
-The "Retro Chip Tester Professional" also supports reading protected PALs - see
-https://8bit-museum.de/hardware-projekte/hardware-projekte-chip-tester-english/.
-
 Rodney used the "EPROM readout adapter" from http://techno-junk.org which basically
 "misuses" a chip programmer to apply all possible input combinations to the PAL via the
 EPROM address lines A0..A17. An analysis tool is then used to transform the "EPROM dump"
@@ -87,9 +84,7 @@ does 2k2. Only after going down to 1k, it worked for me and so you also might ne
 
 ## Install Python and SymPy
 
-Go to www.python.org, download a recent Python version (anything >= 3.6 should do) and install it.
-
-Install the sympy package. E.g. by running "pip3 install sympy" on the command line.
+Go to www.python.org, download a recent Python version (anything >= 3.7 should do) and install it.
 
 ## Generate "EPROM dump"
 
