@@ -231,32 +231,32 @@ cp ibm_5170_u130_pete_equations.pld ibm_5170_u130.pld
 
 The problematic equation is:
 ```
-!UNUSED_14 = BUSY
+!UNUSED_14 = !RESET & XA3
+  # !RESET & XIOW
+  # !RESET & SM_IO
+  # !RESET & CS287
+  # !RESET & !INTA
   # ERROR
-  # TIEDGND_11
-  # CS287 & !RESET
-  # SM_IO & !RESET
-  # XA3 & !RESET
-  # XIOW & !RESET
-  # !INTA & !RESET;
+  # BUSY
+  # TIEDGND_11;
 ```
 
 GAL16V8s only support at most 7 terms per output value. So we need to find a simplification.
 Looking around in the remaining file, we will find:
 ```
-!IRQ_13 = BUSY
-  # ERROR;
+!IRQ_13 = ERROR
+  # BUSY;
 ```
 
-So, `BUSY # ERROR` can be replaced by `!IRQ_13`:
+So, `ERROR # BUSY` can be replaced by `!IRQ_13`:
 ```
-!UNUSED_14 = !IRQ_13
-  # TIEDGND_11
-  # CS287 & !RESET
-  # SM_IO & !RESET
-  # XA3 & !RESET
-  # XIOW & !RESET
-  # !INTA & !RESET;
+!UNUSED_14 = !RESET & XA3
+  # !RESET & XIOW
+  # !RESET & SM_IO
+  # !RESET & CS287
+  # !RESET & !INTA
+  # !IRQ_13
+  # TIEDGND_11;
 ```
 
 Doing this change in ibm_5170_u130.pld gives as equations usable for creating the fuse map:
